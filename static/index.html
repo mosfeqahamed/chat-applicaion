@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go Chat</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f4f5f7; color: #222; }
+    .app { max-width: 720px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; padding: 16px; }
+    h1 { margin: 0 0 8px; font-size: 1.4rem; }
+    #status { font-size: 0.85rem; color: #888; margin-bottom: 8px; }
+    #status.online { color: #2e7d32; }
+    #messages { flex: 1; overflow-y: auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; list-style: none; margin: 0 0 12px; }
+    #messages li { margin-bottom: 10px; word-wrap: break-word; }
+    .meta { font-size: 0.8rem; color: #888; }
+    .user { font-weight: 600; color: #1565c0; margin-right: 6px; }
+    form { display: flex; gap: 8px; }
+    input { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+    #username { width: 140px; }
+    #text { flex: 1; }
+    button { padding: 10px 18px; border: 0; border-radius: 6px; background: #1565c0; color: #fff; font-size: 1rem; cursor: pointer; }
+    button:disabled { background: #999; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Go Chat</h1>
+    <div id="status">Connecting…</div>
+    <ul id="messages"></ul>
+    <form id="form">
+      <input id="username" placeholder="Your name" maxlength="32" required>
+      <input id="text" placeholder="Type a message…" maxlength="1000" autocomplete="off" required>
+      <button id="send" type="submit" disabled>Send</button>
+    </form>
+  </div>
+
+  <script>
+    const messages = document.getElementById("messages");
+    const statusEl = document.getElementById("status");
+    const form = document.getElementById("form");
+    const usernameInput = document.getElementById("username");
+    const textInput = document.getElementById("text");
+    const sendBtn = document.getElementById("send");
+    let ws;
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+      ws.onopen = () => {
+        statusEl.textContent = "Connected";
+        statusEl.className = "online";
+        sendBtn.disabled = false;
+      };
+      ws.onclose = () => {
+        statusEl.textContent = "Disconnected — reconnecting…";
+        statusEl.className = "";
+        sendBtn.disabled = true;
+        setTimeout(connect, 2000);
+      };
+      ws.onmessage = (event) => {
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+        addMessage(msg);
+      };
+    }
+
+    // Uses textContent only, so user content is never parsed as HTML (prevents XSS).
+    function addMessage(msg) {
+      const li = document.createElement("li");
+      const user = document.createElement("span");
+      user.className = "user";
+      user.textContent = msg.username;
+      const time = document.createElement("span");
+      time.className = "meta";
+      time.textContent = new Date(msg.time).toLocaleTimeString();
+      const text = document.createElement("div");
+      text.textContent = msg.text;
+      li.append(user, time, text);
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const username = usernameInput.value.trim();
+      const text = textInput.value.trim();
+      if (!username || !text || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ username, text }));
+      textInput.value = "";
+      textInput.focus();
+    });
+
+    connect();
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+services:
+  chat:
+    build: .
+    image: chat-application:latest
+    container_name: chat-application
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      # Comma-separated extra origins allowed to open WebSockets (same-origin is always allowed).
+      ALLOWED_ORIGINS: ""
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
